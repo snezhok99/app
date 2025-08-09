@@ -1,39 +1,27 @@
 pipeline {
-    agent any // Указывает, что Jenkins может запускать этот пайплайн на любом доступном агенте
+    agent any
 
     environment {
-        // Переменные окружения, которые будут доступны в пайплайне
-        // Замените YOUR_DOCKERHUB_USERNAME на ваш логин Docker Hub
-        DOCKER_USERNAME = 'snezhok99'
-        // Замените YOUR_DOCKERHUB_PASSWORD_ID на ID учетных данных Docker Hub в Jenkins
-        DOCKER_PASSWORD_ID = 'dockerhub-credentials'
-        // Имя стека Docker Swarm
         SWARM_STACK_NAME = 'app'
+        DB_SERVICE = 'db'
+        DB_USER = 'root'
+        DB_PASSWORD = 'secret'
+        DB_NAME = 'lena'
+        FRONTEND_URL = 'http://192.168.0.1:8080'
     }
 
     stages {
-        stage('Build Docker Images') {
+        stage('Checkout') {
             steps {
-                script {
-                    // Авторизация в Docker Hub
-                    withCredentials([usernamePassword(credentialsId: env.DOCKER_PASSWORD_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
-                    }
-
-                    // Сборка образа для PHP/Apache (web-server)
-                    sh "docker build -f php.Dockerfile . -t ${DOCKER_USERNAME}/${SWARM_STACK_NAME}-web:latest"
-                    // Сборка образа для MySQL (db) - если вы используете свой образ MySQL
-                    sh "docker build -f mysql.Dockerfile . -t ${DOCKER_USERNAME}/${SWARM_STACK_NAME}-db:latest"
-                }
+                checkout scm
             }
         }
 
-        stage('Push Docker Images') {
+        stage('Build Docker Images') {
             steps {
                 script {
-                    // Отправка образов в Docker Hub
-                    sh "docker push ${DOCKER_USERNAME}/${SWARM_STACK_NAME}-web:latest"
-                    sh "docker push ${DOCKER_USERNAME}/${SWARM_STACK_NAME}-db:latest" // Если вы используете свой образ MySQL
+                    sh "docker build -f php.Dockerfile -t app-web:latest ."
+                    sh "docker build -f mysql.Dockerfile -t app-db:latest ."
                 }
             }
         }
@@ -41,54 +29,58 @@ pipeline {
         stage('Deploy to Docker Swarm') {
             steps {
                 script {
-                    // Проверка, что Docker Swarm инициализирован
-                    // Этот шаг предполагает, что Jenkins агент имеет доступ к Docker Swarm API
-                    // через монтирование docker.sock
-                    sh "docker swarm init || true"
+                    sh '''
+                        if ! docker info | grep -q "Swarm: active"; then
+                            docker swarm init || true
+                        fi
+                    '''
                     sh "docker stack deploy --with-registry-auth -c docker-compose.yaml ${SWARM_STACK_NAME}"
                 }
             }
         }
 
-        stage('Run Automated Tests') {
+        stage('Run Tests') {
             steps {
                 script {
-                    // Ждем, пока сервисы развернутся и будут готовы
-                    sh "sleep 60"
+                    echo 'Ожидание запуска сервисов...'
+                    sleep time: 30, unit: 'SECONDS'
 
-                    // Проверка доступности веб-сервера (фронтенда)
-                    echo "Checking web server availability..."
-                    sh "curl -f http://localhost:8080 || { echo 'Web server is not accessible!'; exit 1; }"
-                    echo "Web server is accessible!"
+                    echo 'Проверка доступности фронта...'
+                    sh """
+                        if ! curl -fsS ${FRONTEND_URL}; then
+                            echo 'Фронт недоступен'
+                            exit 1
+                        fi
+                    """
 
-                    // Проверка подключения к базе данных и наличия таблицы
-                    echo "Checking database connectivity and table presence..."
-                    def dbContainerId = sh(returnStdout: true, script: 'docker ps -q --filter ancestor=mhjkeee/mysql --filter status=running').trim()
-                    
-                    if (dbContainerId) {
-                        // Используем docker exec для выполнения команды внутри контейнера базы данных
-                        // Проверяем наличие таблицы 'products' в базе данных 'lena'
-                        sh """docker exec ${dbContainerId} mysql -u root -p'secret' -e 'USE lena; DESCRIBE products;'"""
-                    } else {
-                        echo "Database container not found!"
-                        error "Database connectivity test failed."
+                    echo 'Получение ID контейнера базы данных...'
+                    def dbContainerId = sh(
+                        script: "docker ps --filter name=${SWARM_STACK_NAME}_${DB_SERVICE} --format '{{.ID}}'",
+                        returnStdout: true
+                    ).trim()
+
+                    if (!dbContainerId) {
+                        error("Контейнер базы данных не найден")
                     }
-                    echo "Database connectivity and table 'products' test passed!"
+
+                    echo 'Подключение к MySQL и проверка таблиц...'
+                    sh """
+                        docker exec ${dbContainerId} mysql -u${DB_USER} -p${DB_PASSWORD} -e 'USE ${DB_NAME}; SHOW TABLES;'
+                    """
                 }
             }
         }
     }
 
     post {
-        always {
-            // Действия, которые выполняются всегда после завершения пайплайна
-            cleanWs() // Очистка рабочего пространства
-        }
         success {
-            echo 'Pipeline finished successfully!'
+            echo 'Все этапы успешно завершены'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo 'Ошибка в одном из этапов. Проверь логи выше.'
+        }
+        always {
+            cleanWs()
         }
     }
 }
