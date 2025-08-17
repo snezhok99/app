@@ -11,7 +11,7 @@ services:
 
   db:
     image: app-db:latest          
-    restart: always
+    #restart: always
     environment:
       MYSQL_ROOT_PASSWORD: 'secretik'
       MYSQL_DATABASE: 'lena'
