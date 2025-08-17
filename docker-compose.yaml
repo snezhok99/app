@@ -22,7 +22,7 @@ services:
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:5.0.1
-    restart: always
+    #restart: always
     environment:
       PMA_HOST: 'db11'
       PMA_USER: 'root'
