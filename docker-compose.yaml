@@ -6,14 +6,14 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      #- db
+      - db
       - phpmyadmin
 
   db:
     image: app-db:latest          
-    #restart: always
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: 'secretik'
+      MYSQL_ROOT_PASSWORD: 'secret'
       MYSQL_DATABASE: 'lena'
     ports:
       - "3306:3306"
@@ -22,9 +22,9 @@ services:
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:5.0.1
-    #restart: always
+    restart: always
     environment:
-      PMA_HOST: 'db11'
+      PMA_HOST: 'db'
       PMA_USER: 'root'
       PMA_PASSWORD: 'secret'
     ports:
