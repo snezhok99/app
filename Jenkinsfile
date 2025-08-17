@@ -5,7 +5,7 @@ pipeline {
         SWARM_STACK_NAME = 'app'
         DB_SERVICE = 'db'                   // исправлено
         DB_USER = 'root'
-        DB_PASSWORD = 'secret'
+        DB_PASSWORD = 'secretik'
         DB_NAME = 'lena'
         FRONTEND_URL = 'http://192.168.0.1:8080'  // исправлено
     }
