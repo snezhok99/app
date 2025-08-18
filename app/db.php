@@ -1,7 +1,7 @@
 <?php
 
-$host = 'db1';
-$db = 'lena1';
+$host = 'db';
+$db = 'lena';
 $user = 'root';
 $pass = 'secret';
 
@@ -11,5 +11,6 @@ try {
 } catch (PDOException $e) {
     echo 'Ошибка соединения с базой данных' .$e->getMessage();       
 }
+
 
 
