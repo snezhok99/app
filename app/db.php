@@ -1,9 +1,9 @@
 <?php
 
-$host = 'db';
-$db = 'lena';
+$host = 'd';
+$db = 'l';
 $user = 'root';
-$pass = 'secret';
+$pass = 's';
 
 try {
     $pdo = new PDO("mysql:host=$host; dbname=$db", $user, $pass);
@@ -11,6 +11,7 @@ try {
 } catch (PDOException $e) {
     echo 'Ошибка соединения с базой данных' .$e->getMessage();       
 }
+
 
 
 
