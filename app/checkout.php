@@ -1,5 +1,5 @@
 <?php
-include 'db1.php';
+include 'db.php';
 if (!empty($_POST["action"])) {
     if ($_POST["action"]== "checkout"){
 
